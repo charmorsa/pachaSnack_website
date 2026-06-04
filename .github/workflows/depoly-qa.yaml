@@ -8,7 +8,7 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GKE_CLUSTER: autopilot-cluster-1        # Pon el nombre de tu clúster GKE
-  GKE_ZONE: us-central1-a                   # Pon la zona/región de tu clúster
+  GKE_ZONE: us-central1                   # Pon la zona/región de tu clúster
   REPOSITORY: pachasnack-website          # Nombre del repositorio en Artifact Registry
   IMAGE: pachasnack-website-imagen        # Nombre que le darás a tu imagen de Docker
   

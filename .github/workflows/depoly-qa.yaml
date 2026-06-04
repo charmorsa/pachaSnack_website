@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Checkout Código
+      uses: actions/checkout@v4
+
         # 1. Autenticar en GCP usando la clave de la cuenta de servicio
     - name: Autenticar en GCP
       uses: google-github-actions/auth@v2
@@ -67,4 +70,3 @@ jobs:
         
         # Monitorear el despliegue hasta que los nuevos pods de React estén 100% listos
         kubectl rollout status deployment/react-app-qa -n qa
-

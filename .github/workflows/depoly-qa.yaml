@@ -1,0 +1,65 @@
+name: Deploy to QA (GKE)
+
+on:
+  push:
+    branches:
+      - qa # Se dispara únicamente al hacer push a la rama qa
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GKE_CLUSTER: autopilot-cluster-1        # Pon el nombre de tu clúster GKE
+  GKE_ZONE: us-central1-a                   # Pon la zona/región de tu clúster
+  REPOSITORY: pachasnack-website          # Nombre del repositorio en Artifact Registry
+  IMAGE: pachasnack-website-imagen        # Nombre que le darás a tu imagen de Docker
+  
+jobs:
+  setup-build-publish-deploy:
+    name: Setup, Build, Publish, and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Código
+      uses: actions/checkout@v4
+
+    # Autenticación en Google Cloud
+    - name: Autenticar en GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    # Configurar herramientas de GCP (gcloud y kubectl)
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    # Configurar Docker para que use las credenciales de GCP
+    - name: Configurar Docker para Artifact Registry
+      run: |-
+        gcloud auth configure-docker ${{ env.GKE_ZONE }}-docker.pkg.dev
+
+    # Obtener credenciales del clúster GKE para Kubectl
+    - name: Obtener credenciales de GKE
+      uses: google-github-actions/get-gke-credentials@v2
+      with:
+        cluster_name: ${{ env.GKE_CLUSTER }}
+        location: ${{ env.GKE_ZONE }}
+
+    # Construir la imagen Docker de la aplicación
+    - name: Construir Imagen Docker
+      run: |-
+        docker build \
+          --tag "${{ env.GKE_ZONE }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }}" \
+          .
+
+    # Subir la imagen Docker a Google Artifact Registry
+    - name: Publicar Imagen Docker
+      run: |-
+        docker push "${{ env.GKE_ZONE }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }}"
+
+    # Reemplazar la etiqueta de la imagen en el manifiesto e inyectarla en Kubernetes
+    - name: Desplegar en GKE
+      run: |-
+        # Instala la herramienta de personalización si es necesario o usa sed para cambiar el tag dinámico
+        sed -i "s|image:.*|image: ${{ env.GKE_ZONE }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }}|g" k8s/deployment.yaml
+        kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/service.yaml
+        kubectl rollout status deployment/mi-app-qa -n qa

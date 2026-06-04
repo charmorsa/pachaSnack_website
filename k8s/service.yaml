@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: pachasnack-website-service
+  name: react-app-service
   namespace: qa
 spec:
   type: LoadBalancer
   selector:
-    app: pachasnack-website
+    app: react-app
   ports:
   - protocol: TCP
-    port: 80
-    targetPort: 3000
+    port: 80         # Puerto expuesto al público (HTTP)
+    targetPort: 80   # Puerto del contenedor Nginx

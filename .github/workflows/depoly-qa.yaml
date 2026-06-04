@@ -1,65 +1,49 @@
-name: Deploy to QA (GKE)
-
-on:
-  push:
-    branches:
-      - qa # Se dispara únicamente al hacer push a la rama qa
-
-env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  GKE_CLUSTER: autopilot-cluster-1        # Pon el nombre de tu clúster GKE
-  GKE_ZONE: us-central1                   # Pon la zona/región de tu clúster
-  REPOSITORY: pachasnack-website          # Nombre del repositorio en Artifact Registry
-  IMAGE: pachasnack-website-imagen        # Nombre que le darás a tu imagen de Docker
-  
-jobs:
-  setup-build-publish-deploy:
-    name: Setup, Build, Publish, and Deploy
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout Código
-      uses: actions/checkout@v4
-
-    # Autenticación en Google Cloud
+    # 1. Autenticar en GCP usando la clave de la cuenta de servicio
     - name: Autenticar en GCP
       uses: google-github-actions/auth@v2
       with:
         credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-    # Configurar herramientas de GCP (gcloud y kubectl)
+    # 2. Configurar las herramientas de Google Cloud SDK
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
 
-    # Configurar Docker para que use las credenciales de GCP
+    # 3. Configurar Docker para subir las imágenes sin problemas
     - name: Configurar Docker para Artifact Registry
       run: |-
         gcloud auth configure-docker ${{ env.GKE_ZONE }}-docker.pkg.dev
 
-    # Obtener credenciales del clúster GKE para Kubectl
-    - name: Obtener credenciales de GKE
-      uses: google-github-actions/get-gke-credentials@v2
-      with:
-        cluster_name: ${{ env.GKE_CLUSTER }}
-        location: ${{ env.GKE_ZONE }}
-
-    # Construir la imagen Docker de la aplicación
+    # 4. Construir la imagen Docker de React con TypeScript
     - name: Construir Imagen Docker
       run: |-
         docker build \
           --tag "${{ env.GKE_ZONE }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }}" \
           .
 
-    # Subir la imagen Docker a Google Artifact Registry
+    # 5. Publicar la imagen Docker construida en Artifact Registry
     - name: Publicar Imagen Docker
       run: |-
         docker push "${{ env.GKE_ZONE }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }}"
 
-    # Reemplazar la etiqueta de la imagen en el manifiesto e inyectarla en Kubernetes
+    # 6. CRUCIAL: Obtener el contexto y las credenciales reales de GKE antes de usar kubectl
+    - name: Obtener credenciales de GKE
+      uses: google-github-actions/get-gke-credentials@v2
+      with:
+        cluster_name: ${{ env.GKE_CLUSTER }}
+        location: ${{ env.GKE_ZONE }} # Aquí mapea tu región de GCP (ej. us-central1)
+
+    # 7. Aplicar los manifiestos en tu clúster de Google Cloud
     - name: Desplegar en GKE
       run: |-
-        # Instala la herramienta de personalización si es necesario o usa sed para cambiar el tag dinámico
+        # Crear el espacio de nombres de QA si no existe todavía
+        kubectl create namespace qa --dry-run=client -o yaml | kubectl apply -f -
+
+        # Reemplazar de forma dinámica la URL de la imagen en tu manifiesto de Kubernetes
         sed -i "s|image:.*|image: ${{ env.GKE_ZONE }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }}|g" k8s/deployment.yaml
+        
+        # Aplicar cambios de infraestructura
         kubectl apply -f k8s/deployment.yaml
         kubectl apply -f k8s/service.yaml
-        kubectl rollout status deployment/mi-app-qa -n qa
+        
+        # Monitorear el despliegue hasta que los nuevos pods de React estén 100% listos
+        kubectl rollout status deployment/react-app-qa -n qa

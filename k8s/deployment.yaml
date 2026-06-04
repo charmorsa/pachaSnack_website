@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: react-app-qa
+  namespace: qa
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: react-app
+  template:
+    metadata:
+      labels:
+        app: react-app
+    spec:
+      containers:
+      - name: react-container
+        # Esta imagen se reemplazará automáticamente en el pipeline de GitHub Actions
+        image: REGION-docker.pkg.dev/PROJECT_ID/REPO_NAME/IMAGE_NAME:latest
+        ports:
+        - containerPort: 80 # Nginx corre en el puerto 80 por defecto
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"

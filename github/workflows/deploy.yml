@@ -1,0 +1,62 @@
+name: Build and Deploy to GKE
+
+on:
+  push:
+    branches:
+      - main  # Se ejecutará automáticamente cuando subas cambios a la rama main
+
+jobs:
+  setup-build-publish-deploy:
+    name: Setup, Build, Publish, and Deploy
+    runs-on: ubuntu-latest
+
+    # Permisos necesarios para la autenticación OIDC con Google Cloud
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: Checkout del código
+      uses: actions/checkout@v4
+
+    # Paso 1: Autenticación en Google Cloud usando Workload Identity
+    - name: Authenticate to Google Cloud
+      id: auth
+      uses: google-github-actions/auth@v2
+      with:
+        token_format: 'access_token'
+        workload_identity_provider: ${{ secrets.GCP_WORKLOAD_PROVIDER }}
+        service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+    # Paso 2: Autenticarse en Docker para poder subir imágenes a Artifact Registry
+    - name: Docker Auth
+      uses: docker/login-action@v3
+      with:
+        registry: us-central1-docker.pkg.dev # Cambia por tu región de Artifact Registry
+        username: _json_key_base64
+        password: ${{ steps.auth.outputs.access_token }}
+
+    # Paso 3: Construir y Subir la imagen Docker
+    - name: Build and Push Container
+      run: |
+        # Definimos las variables de las rutas de la imagen
+        REGISTRY_URL="us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/mi-proyecto-apps/backend-api"
+        IMAGE_TAG="${{ github.sha }}" # Usamos el ID del commit como etiqueta de versión para que sea única
+        
+        # Construimos la imagen apuntando al Dockerfile local
+        docker build -t $REGISTRY_URL:$IMAGE_TAG -t $REGISTRY_URL:latest .
+        
+        # Subimos la versión específica y la etiqueta 'latest'
+        docker push $REGISTRY_URL:$IMAGE_TAG
+        docker push $REGISTRY_URL:latest
+
+    # Paso 4 (Opcional para el futuro): Conectarse a Kubernetes y actualizar la app
+    # - name: Set up GKE credentials
+    #   uses: google-github-actions/get-gke-credentials@v2
+    #   with:
+    #     cluster_name: 'cluster-produccion'
+    #     location: 'us-central1'
+    # 
+    # - name: Deploy to GKE
+    #   run: |
+    #     kubectl set image deployment/backend-deployment backend=$REGISTRY_URL:${{ github.sha }}

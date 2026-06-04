@@ -1,4 +1,24 @@
-    # 1. Autenticar en GCP usando la clave de la cuenta de servicio
+name: Deploy to QA (GKE)
+
+on:
+  push:
+    branches:
+      - qa # Se dispara únicamente al hacer push a la rama qa
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GKE_CLUSTER: autopilot-cluster-1        # Pon el nombre de tu clúster GKE
+  GKE_ZONE: us-central1                   # Pon la zona/región de tu clúster
+  REPOSITORY: pachasnack-website          # Nombre del repositorio en Artifact Registry
+  IMAGE: pachasnack-website-imagen        # Nombre que le darás a tu imagen de Docker
+  
+jobs:
+  setup-build-publish-deploy:
+    name: Setup, Build, Publish, and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+        # 1. Autenticar en GCP usando la clave de la cuenta de servicio
     - name: Autenticar en GCP
       uses: google-github-actions/auth@v2
       with:
@@ -47,3 +67,4 @@
         
         # Monitorear el despliegue hasta que los nuevos pods de React estén 100% listos
         kubectl rollout status deployment/react-app-qa -n qa
+

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pachasnack-website-service
+  namespace: qa
+spec:
+  type: LoadBalancer
+  selector:
+    app: pachasnack-website
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3000

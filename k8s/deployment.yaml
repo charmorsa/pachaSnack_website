@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pachasnack-website-qa
+  namespace: qa
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: website
+  template:
+    metadata:
+      labels:
+        app: website
+    spec:
+      containers:
+      - name: pachasnack-website-container
+        image: REGION-docker.pkg.dev/PROJECT_ID/REPO_NAME/IMAGE_NAME:latest
+        ports:
+        - containerPort: 3000 # Cambia al puerto que use tu app

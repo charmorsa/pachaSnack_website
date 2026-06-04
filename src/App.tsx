@@ -11,7 +11,6 @@ import {
   deleteProduct,
   deleteProvider,
   deleteUser,
-  getApiUrl,
   getErrorMessage,
   getProducts,
   getProviders,
@@ -248,7 +247,6 @@ export function App() {
             </label>
             <button className="secondary" disabled={loading} type="submit"><UserPlus size={16} /> Registrar</button>
           </form>
-          <span className="api-footnote">API: {getApiUrl()}</span>
         </section>
       </main>
     );
@@ -273,7 +271,6 @@ export function App() {
         <header className="topbar">
           <div>
             <h1>Gestión AppPacha</h1>
-            <p>{getApiUrl()}</p>
           </div>
           <button className="secondary" onClick={() => void loadData()} disabled={loading}><RefreshCw size={16} /> Actualizar</button>
         </header>
